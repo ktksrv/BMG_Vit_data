@@ -3,7 +3,7 @@ from numpy import transpose
 from sympy import convex_hull
 
 
-def extract_dat(path, no_atoms):
+def extract_dat(path, no_atoms):                                              
     import pandas as pd
     import numpy as np
 
@@ -1579,18 +1579,21 @@ def interatomic_dist_matrix_tertiary(type_sorted_initial_coord,particle_type,no_
     return type_1_1,type_1_2,type_1_3,type_2_2,type_2_3,type_3_3
 
 
-def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration,no_segs):
+def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration):
     import STZ
     import numpy as np
     import matplotlib.pyplot as plt
     from scipy import interpolate
+
+    ns=np.loadtxt('Clusters/{}_cluster/cluster_{}/Normal_stress.txt'.format(no_atoms,iteration))
+    alpha_start, alpha_end = get_alpha_range(ns)
     d_alpha=np.linspace(-max_alpha,max_alpha,total_disp_steps+1)
-    d_alpha = d_alpha[130:300]
+    d_alpha = d_alpha[alpha_start:alpha_end]
     d_beta=np.linspace(0,max_beta, num=total_disp_steps+1)
     Beta,Alpha=np.meshgrid(d_beta,d_alpha)
-    ns=np.loadtxt('Clusters/{}_cluster/cluster_{}/Normal_stress.txt'.format(no_atoms,iteration))
     initial,particle_type=STZ.extract_dat_type('Clusters/{}_cluster/cluster_{}/cluster_{}.dat'.format(no_atoms,iteration,no_atoms),no_atoms)
     initial_interatomic_mat_1_1,initial_interatomic_mat_1_2,initial_interatomic_mat_1_3,initial_interatomic_mat_1_4,initial_interatomic_mat_1_5,initial_interatomic_mat_2_2,initial_interatomic_mat_2_3,initial_interatomic_mat_2_4,initial_interatomic_mat_2_5,initial_interatomic_mat_3_3,initial_interatomic_mat_3_4,initial_interatomic_mat_3_5,initial_interatomic_mat_4_4,initial_interatomic_mat_4_5,initial_interatomic_mat_5_5,sort_order = STZ.init_interatomic_dist_matrix_multi(initial,particle_type,no_atoms)
+    initial_bonds = pos_count(initial_interatomic_mat_1_1)+pos_count(initial_interatomic_mat_1_2)+pos_count(initial_interatomic_mat_1_3)+pos_count(initial_interatomic_mat_1_4)+pos_count(initial_interatomic_mat_1_5)+pos_count(initial_interatomic_mat_2_2)+pos_count(initial_interatomic_mat_2_3)+pos_count(initial_interatomic_mat_2_4)+pos_count(initial_interatomic_mat_2_5)+pos_count(initial_interatomic_mat_3_3)+pos_count(initial_interatomic_mat_3_4)+pos_count(initial_interatomic_mat_3_5)+pos_count(initial_interatomic_mat_4_4)+pos_count(initial_interatomic_mat_4_5)
     cs = plt.contour(Beta,Alpha,ns,0)
     dat0=cs.allsegs[1][0]
     ss_lvl=np.zeros(len(dat0))
@@ -1634,10 +1637,13 @@ def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration
         # initial_bonded_matrix_3_3 = current_bonded_matrix_5_5
         bond_change_frequency[j] = STZ.neg_count(bond_status_change_matrix_1_1)+STZ.neg_count(bond_status_change_matrix_1_2)+STZ.neg_count(bond_status_change_matrix_1_3)+STZ.neg_count(bond_status_change_matrix_1_4)+STZ.neg_count(bond_status_change_matrix_1_5)+STZ.neg_count(bond_status_change_matrix_2_2)+STZ.neg_count(bond_status_change_matrix_2_3)+STZ.neg_count(bond_status_change_matrix_2_4)+STZ.neg_count(bond_status_change_matrix_2_5)+STZ.neg_count(bond_status_change_matrix_3_3)+STZ.neg_count(bond_status_change_matrix_3_4)+STZ.neg_count(bond_status_change_matrix_3_5)+STZ.neg_count(bond_status_change_matrix_4_4)+STZ.neg_count(bond_status_change_matrix_4_5)
 
-    bond_change_frequency = np.delete(bond_change_frequency,0)
-    max_change = bond_change_frequency.max()
+    bond_breakage_frequency = np.delete(bond_change_frequency,0)
+    norm_bond_breakage_freq = bond_breakage_frequency/initial_bonds
+    window = 9 # (i-4 to i+4 : 9 strain steps)
+    kernel = np.ones(window)
+    norm_bond_breakage_density = np.convolve(norm_bond_breakage_freq, kernel, mode='valid')
     y_interp = interpolate.interp1d(s_strain,ss_lvl)
-    yield_strain = dat0[np.where(bond_change_frequency>0.07*max_change)[0][0]][0]
+    yield_strain = dat0[np.where(norm_bond_breakage_density>0.1)[0][0]+ 4][0]
     tau_o_zero = y_interp(yield_strain)
 
     dat_transfer[0] = yield_strain
@@ -1656,11 +1662,11 @@ def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration
     ax2 = ax1.twinx()
 
     color = 'tab:blue'
-    ax2.set_ylabel('Bond breaking Status Changes', color=color)
+    ax2.set_ylabel('Normalised Bond breaking Status Density', color=color)
     l2, = ax2.plot(s_strain[1:],bond_change_frequency, "-",color=color)
     ax2.tick_params(axis='y', labelcolor=color)
-    plt.legend([l2, l1], ["Bond breaking status", "Stress vs Strain"])
-    plt.savefig('Clusters/{}_cluster/cluster_{}/bond_freq_0.0_update.png'.format(no_atoms,iteration), facecolor='white', transparent=False)
+    plt.legend([l2, l1], ["Bond breaking Density", "Stress vs Strain"])
+    plt.savefig('Clusters/{}_cluster/cluster_{}/bond_density_0.0.png'.format(no_atoms,iteration), facecolor='white', transparent=False)
     np.savetxt('Clusters/{}_cluster/cluster_{}/dat_trans.txt'.format(no_atoms,iteration), dat_transfer)
     plt.clf()   
 
@@ -1671,6 +1677,14 @@ def neg_count(matrix):
             if(matrix[i][j]<0):
                 neg_no = neg_no+1
     return neg_no
+
+def pos_count(matrix):
+    pos_no = 0
+    for i in range(len(matrix)):
+        for j in range(len(matrix[0])):
+            if(matrix[i][j]>0):
+                pos_no = pos_no+1
+    return pos_no
 
 def yield_strain_tertiary_bs_red(max_alpha,max_beta,total_disp_steps,no_atoms,iteration,no_segs):
     import STZ
@@ -1969,9 +1983,7 @@ def MC_good_cluster_p_red(no_atoms,max_alpha,max_beta,total_disp_steps,lower,upp
     dat_trans = np.loadtxt('Clusters/{}_cluster/cluster_{}/dat_trans.txt'.format(no_atoms,iteration))
     tau_o_zero = dat_trans[1]
     bs_change = dat_trans[0]
-    upper_l = bs_change+0.01
-    upper_l_neg = bs_change+shift        # value added depends upon difference in strain in potential yield points (smaller sizes less value -> not much shift in yield point with normal stress )
-    upper_l_pos = bs_change+shift
+
 
     factors_ns=np.linspace(lower,upper,steps)
     factors_ns = np.delete(factors_ns,int((steps-1)/2))
@@ -1982,8 +1994,9 @@ def MC_good_cluster_p_red(no_atoms,max_alpha,max_beta,total_disp_steps,lower,upp
     string='Normal_stress_'
     initial,particle_type=STZ.extract_dat_type('Clusters/{}_cluster/cluster_{}/cluster_{}.dat'.format(no_atoms,iteration,no_atoms),no_atoms)
     ns=np.loadtxt('Clusters/{}_cluster/cluster_{}/Normal_stress.txt'.format(no_atoms,iteration))
+    alpha_start, alpha_end = get_alpha_range(ns)
     d_alpha = np.linspace(-max_alpha,max_alpha,total_disp_steps+1)
-    d_alpha = d_alpha[130:300]
+    d_alpha = d_alpha[alpha_start:alpha_end]
     d_beta = np.linspace(0,max_beta, num=total_disp_steps+1)
     Beta,Alpha=np.meshgrid(d_beta,d_alpha)
     cs = plt.contour(Beta,Alpha,ns,normal_s)
@@ -1996,26 +2009,11 @@ def MC_good_cluster_p_red(no_atoms,max_alpha,max_beta,total_disp_steps,lower,upp
     string=string+str(round(normal_s[0]/tau_o_zero,4)) 
     ss_data = np.column_stack((s_strain, ss_lvl))
 
-    if(normal_s>=0):
-        upper_l_corr = upper_l_pos
-    else:
-        upper_l_corr = upper_l_neg
 
-    stress_diff = np.zeros(len(ss_lvl))
-    for p in range(len(ss_lvl)-1):
-        stress_diff[p] = ss_lvl[p+1]-ss_lvl[p]
-    drop_strains = s_strain[stress_diff<0]
-    drop_strains_useful = drop_strains[drop_strains<upper_l_corr]
-    if(len(drop_strains_useful)==0):
-        stress_useful = ss_lvl[s_strain<upper_l_corr]
-        max_shear_lvl = stress_useful.max()
-        strain_arg = stress_useful.argmax()
-        max_yeild_strain = s_strain[strain_arg]
-    else:
-        y_interp = interpolate.interp1d(s_strain,ss_lvl)
-        max_shear_lvl = y_interp(drop_strains_useful).max()
-        index = y_interp(drop_strains_useful).argmax()
-        max_yeild_strain = drop_strains[index]
+    stress_useful = ss_lvl[s_strain<(bs_change+0.01)]
+    max_shear_lvl = stress_useful.max()
+    strain_arg = stress_useful.argmax()
+    max_yeild_strain = s_strain[strain_arg]
 
     plt.figure(figsize=[6,4], dpi=300)
     plt.title('{} atoms STZ at normalised normal stress = {}'.format(no_atoms,round(factor[0],4)))
@@ -2032,4 +2030,31 @@ def MC_good_cluster_p_red(no_atoms,max_alpha,max_beta,total_disp_steps,lower,upp
     np.savetxt('Clusters/{}_cluster/cluster_{}/MC_data_{}'.format(no_atoms,iteration,iteration),MC_data)
 
 
-    
+def get_alpha_range(mat):
+    """
+    Determine alpha_start and alpha_end based on number of rows in a 2D matrix.
+
+    Parameters
+    ----------
+    mat : array-like
+        2D matrix (NumPy array or similar)
+
+    Returns
+    -------
+    alpha_start : int
+    alpha_end   : int
+    """
+
+    n_rows = mat.shape[0]
+
+    alpha_map = {
+        160: (140, 300),
+        136: (130, 266),
+        170: (130, 300),
+        100: (136, 236),
+    }
+
+    try:
+        return alpha_map[n_rows]
+    except KeyError:
+        raise ValueError(f"Unsupported number of rows: {n_rows}")
