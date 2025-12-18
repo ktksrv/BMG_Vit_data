@@ -1579,7 +1579,7 @@ def interatomic_dist_matrix_tertiary(type_sorted_initial_coord,particle_type,no_
     return type_1_1,type_1_2,type_1_3,type_2_2,type_2_3,type_3_3
 
 
-def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration):
+def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration,no_segs):
     import STZ
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1643,7 +1643,7 @@ def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration
     kernel = np.ones(window)
     norm_bond_breakage_density = np.convolve(norm_bond_breakage_freq, kernel, mode='valid')
     y_interp = interpolate.interp1d(s_strain,ss_lvl)
-    yield_strain = dat0[np.where(norm_bond_breakage_density>0.1)[0][0]+ 4][0]
+    yield_strain = dat0[np.where(norm_bond_breakage_density>0.002)[0][0]+ 4][0]
     tau_o_zero = y_interp(yield_strain)
 
     dat_transfer[0] = yield_strain
@@ -1663,7 +1663,7 @@ def yield_strain_multi_bs(max_alpha,max_beta,total_disp_steps,no_atoms,iteration
 
     color = 'tab:blue'
     ax2.set_ylabel('Normalised Bond breaking Status Density', color=color)
-    l2, = ax2.plot(s_strain[1:],bond_change_frequency, "-",color=color)
+    l2, = ax2.plot(s_strain[4:-5],norm_bond_breakage_density, "-",color=color)
     ax2.tick_params(axis='y', labelcolor=color)
     plt.legend([l2, l1], ["Norm. Bond breaking Density", "Stress vs Strain"])
     plt.savefig('Clusters/{}_cluster/cluster_{}/bond_density_0.0.png'.format(no_atoms,iteration), facecolor='white', transparent=False)

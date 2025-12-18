@@ -3,7 +3,7 @@
 #SBATCH -A cdsphani_nsm
 #SBATCH --ntasks-per-node=48 # Number of tasks per node
 #SBATCH --nodes=2
-#SBATCH --time=24:00:00 # Time limit hrs:min:sec
+#SBATCH --time=12:00:00 # Time limit hrs:min:sec
 #SBATCH --partition=small
 
 echo "Number of Nodes Allocated      = $SLURM_JOB_NUM_NODES"
@@ -18,5 +18,5 @@ spack load python@3.10.10 py-pip gcc intel-oneapi-mkl@2023.2.0 intel-oneapi-mpi 
 export PYTHONPATH=${PYTHONPATH}:/scratch/cdspani/Kartikey/lammps-2Aug2023/python
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/scratch/cdspani/Kartikey/lammps-2Aug2023/build
 
-mpirun -n $SLURM_NTASKS python3 MC_test_7.py > /dev/null
-mpirun -n $SLURM_NTASKS yield_bs.py > /dev/null
+#mpirun -n $SLURM_NTASKS python3 MC_test_7.py > /dev/null
+mpirun -n $SLURM_NTASKS  python3 yield_bs.py > /dev/null
