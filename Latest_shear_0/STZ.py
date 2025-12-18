@@ -2010,10 +2010,21 @@ def MC_good_cluster_p_red(no_atoms,max_alpha,max_beta,total_disp_steps,lower,upp
     ss_data = np.column_stack((s_strain, ss_lvl))
 
 
-    stress_useful = ss_lvl[s_strain<(bs_change+0.01)]
-    max_shear_lvl = stress_useful.max()
-    strain_arg = stress_useful.argmax()
-    max_yeild_strain = s_strain[strain_arg]
+    # window around reference yield strain
+    delta = 0.015
+
+    mask = (s_strain >= bs_change - delta) & (s_strain <= bs_change + delta)
+
+    # safety check (important)
+    if not np.any(mask):
+        raise ValueError("No data points found within ±0.02 of bs_change")
+
+    stress_window = ss_lvl[mask]
+    strain_window = s_strain[mask]
+
+    strain_arg = np.argmax(stress_window)
+    max_shear_lvl = stress_window[strain_arg]
+    max_yeild_strain = strain_window[strain_arg]
 
     plt.figure(figsize=[6,4], dpi=300)
     plt.title('{} atoms STZ at normalised normal stress = {}'.format(no_atoms,round(factor[0],4)))

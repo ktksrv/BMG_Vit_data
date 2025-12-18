@@ -18,5 +18,5 @@ spack load python@3.10.10 py-pip gcc intel-oneapi-mkl@2023.2.0 intel-oneapi-mpi 
 export PYTHONPATH=${PYTHONPATH}:/scratch/cdspani/Kartikey/lammps-2Aug2023/python
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/scratch/cdspani/Kartikey/lammps-2Aug2023/build
 
-#mpirun -n $SLURM_NTASKS python3 MC_test_{{I}}.py > /dev/null
-mpirun -n $SLURM_NTASKS  python3 yield_bs.py > /dev/null
+mpirun -n $SLURM_NTASKS python3 MC_test_{{I}}.py > /dev/null
+#mpirun -n $SLURM_NTASKS  python3 yield_bs.py > /dev/null
